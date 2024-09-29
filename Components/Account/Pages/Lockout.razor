@@ -1,8 +1,19 @@
 ﻿@page "/Account/Lockout"
-
+@inject NavigationManager Navigation
 <PageTitle>Locked out</PageTitle>
 
 <header>
     <h1 class="text-danger">Locked out</h1>
-    <p class="text-danger">This account has been locked out, please try again later.</p>
+    <p class="text-danger">This account has been locked out, redirecting to login...</p>
 </header>
+
+
+@code{
+
+    protected override void OnInitialized()
+    {
+        Navigation.NavigateTo("/Logout", true);
+        base.OnInitialized();
+    }
+
+}

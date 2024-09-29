@@ -1,12 +1,13 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Identity;
 
 namespace Task4WebExample.Data.Actions;
 
-public class BlockUsers : IUserAction
+public class BlockUser : IUserAction
 {
     private readonly UserManager<ApplicationUser> _userManager;
     
-    public BlockUsers(UserManager<ApplicationUser> userManager)
+    public BlockUser(UserManager<ApplicationUser> userManager)
     {
         _userManager = userManager;
     }

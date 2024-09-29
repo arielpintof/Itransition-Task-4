@@ -1,6 +1,9 @@
-﻿namespace Task4WebExample.Data.Actions;
+﻿using Task4WebExample.Components.Pages;
 
-public class IUserActionsHandler
+namespace Task4WebExample.Data.Actions;
+
+public interface IUserActionsHandler
 {
+    Task ExecuteUserAction(IUserAction action, IEnumerable<Auth.Person> selectedUsers);
     
 }

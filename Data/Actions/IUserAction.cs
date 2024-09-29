@@ -2,5 +2,5 @@
 
 public interface IUserAction
 {
-    
+    Task ExecuteAsync(ApplicationUser user);
 }

@@ -2,7 +2,7 @@
 
 namespace Task4WebExample.Data.Actions;
 
-public class UnblockUsers : IUserAction
+public class UnblockUser : IUserAction
 {
     private readonly UserManager<ApplicationUser> _userManager;
 

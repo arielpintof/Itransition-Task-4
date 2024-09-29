@@ -1,13 +1,135 @@
 ﻿@page "/auth"
+@page "/admin-panel"
 
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
 @using Microsoft.AspNetCore.Authorization
-
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Task4WebExample.Data
+@using Task4WebExample.Data.Actions
+@using Task4WebExample.Data.Enums
+@using Task4WebExample.Data.Utils
 @attribute [Authorize]
 
-<PageTitle>Auth</PageTitle>
+<PageTitle>Users</PageTitle>
 
-<h1>You are authenticated</h1>
+<div class="d-flex gap-2 flex-wrap">
+    <button class="d-flex align-items-center btn btn-danger btn-sm gap-1 px-3" @onclick="BlockUser">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-lock">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Block
+    </button>
+    <FluentTooltip Anchor="unblock-button">Unblock</FluentTooltip>
+    <button id="unblock-button" class="btn btn-sm border icon-hover" @onclick="UnblockUsers">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-lock-open">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+        </svg>
+    </button>
 
-<AuthorizeView>
-    Hello @context.User.Identity?.Name!
-</AuthorizeView>
+    <FluentTooltip Anchor="delete-button">Delete</FluentTooltip>
+    <button id="delete-button" class="btn btn-sm border icon-hover" @onclick="DeleteUsers">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash">
+            <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+        </svg>
+    </button>
+</div>
+<FluentDataGrid ItemsProvider="PersonProvider" ShowHover="true" TGridItem="Person" Pagination="@_pagination">
+    <SelectColumn TGridItem="Person"
+                  SelectMode="DataGridSelectMode.Multiple"
+                  Property="@(e => e.Selected)"
+                  OnSelect="@(e => OnSelectChanged(e.Item, e.Selected))"
+                  SelectAll="@(PeopleList.All(p => p.Selected))"
+                  SelectAllChanged="@(all => PeopleList.ToList().ForEach(p => p.Selected = (all == true)))"/>
+
+    <PropertyColumn Property="@(p => p.ApplicationUser.Id)" Title="Id" Sortable="true"/>
+    <PropertyColumn Property="@(p => p.ApplicationUser.Name)" Title="Name" Sortable="true"/>
+    <PropertyColumn Property="@(p => p.ApplicationUser.Email)" Sortable="true"/>
+    <PropertyColumn Property="@(p => p.LastLogin)" Sortable="true" Title="Last login"/>
+    <PropertyColumn Property="@(p => p.ApplicationUser.RegisteredAt)" Format="dd-MM-yyyy" Sortable="true" Title="Register date"/>
+    <PropertyColumn Property="@(p => p.ApplicationUser.IsLocked == true ? AccountStatus.Blocked : AccountStatus.Active)" Title="Status"></PropertyColumn>
+</FluentDataGrid>
+<FluentPaginator State="@_pagination"/>
+
+
+@code {
+    private readonly PaginationState _pagination = new() { ItemsPerPage = 10 };
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
+    private static List<Person> PeopleList { get; set; } = [];
+    private IUserActionsHandler? UserActionHandler { get; set; }
+
+    protected override Task OnInitializedAsync()
+    {
+        PeopleList = UserManager.Users.Select(e => new Person(e)).ToList();
+        UserActionHandler = new UserActionHandler(UserManager, Navigation, AuthenticationState);
+
+        return Task.CompletedTask;
+    }
+
+    public record Person(ApplicationUser ApplicationUser)
+    {
+        public bool Selected { get; set; }
+        public string LastLogin { get; } = DateUtils.GetTimeDifference(ApplicationUser.LastLogin);
+    }
+
+    private static void OnSelectChanged(Person person, bool selected) => person.Selected = selected;
+
+    private ValueTask<GridItemsProviderResult<Person>> PersonProvider(
+        GridItemsProviderRequest<Person> req)
+    {
+        var subList = PeopleList.Skip(req.StartIndex).Take(req.Count ?? PeopleList.Count).ToList();
+        return ValueTask.FromResult(GridItemsProviderResult.From(subList, PeopleList.Count));
+    }
+
+    private async Task UnblockUsers()
+    {
+        if (UserActionHandler is null) return;
+        await UserActionHandler.ExecuteUserAction(new UnblockUser(UserManager),
+            PeopleList.Where(p => p.Selected));
+        if (AuthenticationState is null) return;
+        var authState = await AuthenticationState;
+        var userId = AuthUtils.GetUserIdFromClaims(authState.User);
+        if (userId is null) return;
+        var user = await UserManager.FindByIdAsync(userId);
+    }
+
+    private async Task BlockUser()
+    {
+        if (UserActionHandler is null) return;
+        await UserActionHandler.ExecuteUserAction(new BlockUser(UserManager),
+            PeopleList.Where(p => p.Selected));
+
+
+        if (AuthenticationState is null) return;
+        var authState = await AuthenticationState;
+        var userId = AuthUtils.GetUserIdFromClaims(authState.User);
+
+        if (userId is null) return;
+        var user = await UserManager.FindByIdAsync(userId);
+
+        if (user is null || user.IsLocked == true) Navigation.NavigateTo("/Logout", true);
+    }
+
+    private async Task DeleteUsers()
+    {
+        if (UserActionHandler is null) return;
+
+        await UserActionHandler.ExecuteUserAction(new DeleteUser(UserManager),
+            PeopleList.Where(p => p.Selected));
+
+        if (AuthenticationState is null) return;
+        var authState = await AuthenticationState;
+        var userId = AuthUtils.GetUserIdFromClaims(authState.User);
+        if (userId is null) return;
+        var user = await UserManager.FindByIdAsync(userId);
+        if (user is null || user.IsLocked == true)
+        {
+            Navigation.NavigateTo("/Logout", true);
+            return;
+        }
+
+        //refresh to see remaining users
+        Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+    }
+
+}

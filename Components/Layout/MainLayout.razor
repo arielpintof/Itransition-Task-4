@@ -1,13 +1,43 @@
-﻿@inherits LayoutComponentBase
-
+﻿@using Microsoft.FluentUI.AspNetCore.Components
+@using Task4WebExample.Data
+@inject UserManager<ApplicationUser> UserManager
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+<FluentToastProvider/>
+<FluentDialogProvider/>
+<FluentTooltipProvider/>
+<FluentMessageBarProvider/>
+<FluentMenuProvider/>
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <AuthorizeView>
+                <Authorized>
+                    @if (!string.IsNullOrEmpty(UserName))
+                    {
+                        <span>
+                            Welcome, @UserName
+                        </span>
+                    }
+                    <div class="nav-item px-3">
+                        <form action="Account/Logout" method="post">
+                            <AntiforgeryToken/>
+                            <input type="hidden" name="ReturnUrl"/>
+                            <button type="submit" class="btn btn-link">
+                                Sign out
+                            </button>
+                        </form>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <button class="btn btn-primary" @onclick="NavigateToRegister">Sign up</button>
+                    <NavLink class="nav-link" href="Account/Login">
+                        Log in
+                    </NavLink>
+                </NotAuthorized>
+            </AuthorizeView>
+
+
         </div>
 
         <article class="content px-4">
@@ -21,3 +51,21 @@
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code{
+    [CascadingParameter] private AuthenticationState? context { get; set; }
+    private string? UserName { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (context is null) return;
+        var user = await UserManager.FindByNameAsync(context.User.Identity.Name);
+        if (user != null)
+        {
+            UserName = user.Name;
+        }
+    }
+
+    void NavigateToRegister() => Nav.NavigateTo("Account/Register");
+
+}

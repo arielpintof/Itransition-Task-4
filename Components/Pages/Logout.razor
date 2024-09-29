@@ -1,0 +1,18 @@
+﻿@page "/Logout"
+@using Microsoft.AspNetCore.Mvc
+@using Task4WebExample.Data
+@inject NavigationManager NavigationManager
+@inject SignInManager<ApplicationUser> SignInManager
+
+@code {
+    
+    [IgnoreAntiforgeryToken]
+    protected override async Task OnInitializedAsync()
+    {
+        await SignInManager.SignOutAsync();
+        NavigationManager.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}", forceLoad: true);
+        
+    }
+
+    
+}
